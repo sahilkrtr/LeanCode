@@ -30,7 +30,6 @@ def _print_table(headers: List[str], rows: List[List], title: str) -> None:
     if _TABULATE:
         print(tabulate(rows, headers=headers, tablefmt="rounded_grid", floatfmt=".1f"))
     else:
-        # Fallback pretty-printer
         col_w = [max(len(str(h)), max((len(str(r[i])) for r in rows), default=0)) + 2
                  for i, h in enumerate(headers)]
         header_line = "  ".join(str(h).ljust(w) for h, w in zip(headers, col_w))
@@ -43,7 +42,7 @@ def _print_table(headers: List[str], rows: List[List], title: str) -> None:
 
 # ── results ─────────────────────────────────────────────────────
 
-def print_table2(data: Dict) -> None:
+def generate_main_performance_table(data: Dict) -> None:
     headers = [
         "Model", "Setting",
         "ZS VA", "ZS FR", "ZS SC", "ZS AC", "ZS E2E", "ZS Avg",
@@ -80,7 +79,7 @@ def print_table2(data: Dict) -> None:
     _print_table(headers, rows, "TABLE 2 — Main Results on LEANDATA")
 
 
-def print_table3(data: Dict) -> None:
+def generate_gemma_domain_table(data: Dict) -> None:
     headers = [
         "Domain", "Setting",
         "ZS VA", "ZS FR", "ZS SC", "ZS AC", "ZS E2E", "ZS Avg",
@@ -107,7 +106,7 @@ def print_table3(data: Dict) -> None:
     _print_table(headers, rows, "TABLE 3 — Domain-wise Results (Gemma-2B)")
 
 
-def print_table4(data: List) -> None:
+def generate_gemma_ablation_table(data: List) -> None:
     headers = [
         "Setting",
         "ZS VA", "ZS FR", "ZS SC", "ZS AC", "ZS E2E", "ZS Avg",
@@ -127,9 +126,9 @@ def print_table4(data: List) -> None:
             entry.get("Tok/s",""), entry.get("Mem",""), entry.get("GPU-hrs",""),
         ]
         rows.append(row)
-    _print_table(headers, rows, "TABLE 4 — Ablation Study (Gemma-2B)")
+    _print_table(headers, rows, "Ablation Study (Gemma-2B)")
 
-def print_domain_table(model_key: str, table_num: int, data: Dict) -> None:
+def generate_model_domain_table(model_key: str, table_num: int, data: Dict) -> None:
     headers = [
         "Domain", "Setting",
         "ZS VA", "ZS FR", "ZS SC", "ZS AC", "ZS E2E", "ZS Avg",
@@ -156,7 +155,7 @@ def print_domain_table(model_key: str, table_num: int, data: Dict) -> None:
     _print_table(headers, rows, f"TABLE {table_num} — Domain-wise Results ({model_key})")
 
 
-def print_ablation_table(model_key: str, table_num: int, data: List) -> None:
+def generate_model_ablation_table(model_key: str, table_num: int, data: List) -> None:
     headers = [
         "Setting",
         "ZS VA", "ZS FR", "ZS SC", "ZS AC", "ZS E2E", "ZS Avg",
@@ -190,7 +189,6 @@ def print_all_tables(results_file: str) -> None:
         raw = json.load(f)
     print(f"\n[Using results from: {results_file}]")
     
-    # 1. Map Table 2 data (Main)
     t2_data = {}
     for mk, md in raw.items():
         t2_data[mk] = {"compute": {}}
@@ -206,9 +204,8 @@ def print_all_tables(results_file: str) -> None:
                 gpu_key = {"Base": "GPU-hrs_base", "Trained": "GPU-hrs_trained", "RL_Verification": "GPU-hrs_rl"}[sk]
                 t2_data[mk]["compute"][gpu_key] = comp.get("GPU-hrs", "")
     
-    print_table2(data=t2_data)
+    generate_main_performance_table(data=t2_data)
     
-    # 2. Map Table 3 (Gemma domain)
     gemma_dom = raw.get("Gemma-2B", {}).get("domain", {})
     mapped_gemma_dom = {}
     for dom, ddata in gemma_dom.items():
@@ -220,9 +217,8 @@ def print_all_tables(results_file: str) -> None:
                     "FS": ddata[sk].get("FS", {})
                 }
     if mapped_gemma_dom:
-        print_table3(data=mapped_gemma_dom)
+        generate_gemma_domain_table(data=mapped_gemma_dom)
     
-    # 3. Map Table 4 (Gemma ablation)
     gemma_abl = raw.get("Gemma-2B", {}).get("ablation", [])
     mapped_gemma_abl = []
     for abl in gemma_abl:
@@ -235,11 +231,10 @@ def print_all_tables(results_file: str) -> None:
             "GPU-hrs": "",
         })
     if mapped_gemma_abl:
-        print_table4(data=mapped_gemma_abl)
+        generate_gemma_ablation_table(data=mapped_gemma_abl)
     
     other_models = [k for k in raw.keys() if k != "Gemma-2B"]
     
-    # Dynamic Domain Tables (start at 5)
     table_num = 5
     for mk in other_models:
         dom_data = raw.get(mk, {}).get("domain", {})
@@ -253,7 +248,7 @@ def print_all_tables(results_file: str) -> None:
                         "FS": ddata[sk].get("FS", {})
                     }
         if mapped_dom:
-            print_domain_table(mk, table_num=table_num, data=mapped_dom)
+            generate_model_domain_table(mk, table_num=table_num, data=mapped_dom)
             table_num += 1
         
     # Dynamic Ablation Tables
@@ -271,7 +266,7 @@ def print_all_tables(results_file: str) -> None:
                 "GPU-hrs": "",
             })
         if mapped_abl:
-            print_ablation_table(mk, table_num=num, data=mapped_abl)
+            generate_model_ablation_table(mk, table_num=table_num, data=mapped_abl)
 
 
 if __name__ == "__main__":
